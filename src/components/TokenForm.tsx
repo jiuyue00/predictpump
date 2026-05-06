@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface TokenFormProps {
   onTokenCreated?: (token: { name: string; symbol: string; supply: string }) => void;
@@ -11,6 +11,17 @@ export default function TokenForm({ onTokenCreated }: TokenFormProps) {
   const [symbol, setSymbol] = useState("");
   const [supply, setSupply] = useState("1000000000");
   const [step, setStep] = useState<"form" | "preview" | "deploying" | "done">("form");
+
+  // Dynamic gas estimation based on supply length
+  const gasCost = useMemo(() => {
+    const supplyNum = parseInt(supply) || 1000000000;
+    const baseGas = 0.003;
+    const supplyGas = Math.log10(supplyNum) * 0.0005;
+    return (baseGas + supplyGas).toFixed(4);
+  }, [supply]);
+
+  const bnbPrice = 300; // approximate
+  const gasUsd = (parseFloat(gasCost) * bnbPrice).toFixed(2);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,8 +121,8 @@ export default function TokenForm({ onTokenCreated }: TokenFormProps) {
             <span className="font-bold">BSC (BNB)</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">Gas Cost</span>
-            <span className="font-bold text-yellow-400">~0.005 BNB ($1.50)</span>
+            <span className="text-zinc-500">Gas Cost (est.)</span>
+            <span className="font-bold text-yellow-400">~{gasCost} BNB (${gasUsd})</span>
           </div>
         </div>
         <div className="flex gap-3">

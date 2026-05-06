@@ -3,7 +3,10 @@ import Hero from "@/components/Hero";
 import LiveTicker from "@/components/LiveTicker";
 import TokenForm from "@/components/TokenForm";
 import PredictionsList from "@/components/PredictionsList";
-import Footer from "@/components/Footer";
+import TokenLeaderboard from "@/components/TokenLeaderboard";
+import PlayerLeaderboard from "@/components/PlayerLeaderboard";
+import OnboardingTutorial from "@/components/OnboardingTutorial";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Home() {
   return (
@@ -13,10 +16,22 @@ export default function Home() {
       <LiveTicker />
 
       <section id="create" className="max-w-md mx-auto w-full px-4 py-8">
-        <TokenForm />
+        <ErrorBoundary>
+          <TokenForm />
+        </ErrorBoundary>
       </section>
 
-      <PredictionsList />
+      <ErrorBoundary>
+        <PredictionsList />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <TokenLeaderboard />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <PlayerLeaderboard />
+      </ErrorBoundary>
 
       {/* How it works */}
       <section className="max-w-4xl mx-auto px-4 py-12">
@@ -40,7 +55,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
+      <OnboardingTutorial />
     </div>
   );
 }

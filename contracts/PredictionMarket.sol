@@ -8,23 +8,23 @@ contract PredictionMarket {
     struct Market {
         address token;
         string question;
-        uint256 upPool;
-        uint256 downPool;
-        uint256 endTime;
+        uint128 upPool;     // Use uint128 to save gas
+        uint128 downPool;
+        uint40 endTime;     // uint40 enough until year 36812
         bool resolved;
-        bool outcome; // true = up, false = down
+        bool outcome;
         address creator;
     }
 
     struct Bet {
-        bool direction; // true = up, false = down
-        uint256 amount;
+        bool direction;
         bool claimed;
+        uint128 amount;     // Pack with bools for one slot
     }
 
     Market[] public markets;
     mapping(uint256 => mapping(address => Bet)) public bets;
-    uint256 public platformFee = 20; // 2% in basis points
+    uint16 public platformFee = 20; // 2% in basis points
     address public feeRecipient;
 
     event MarketCreated(uint256 indexed marketId, address token, string question, uint256 endTime);
@@ -47,7 +47,7 @@ contract PredictionMarket {
             question: question,
             upPool: 0,
             downPool: 0,
-            endTime: block.timestamp + duration,
+            endTime: uint40(block.timestamp + duration),
             resolved: false,
             outcome: false,
             creator: msg.sender
@@ -61,17 +61,18 @@ contract PredictionMarket {
         require(block.timestamp < market.endTime, "Market ended");
         require(!market.resolved, "Market resolved");
         require(msg.value > 0, "Amount must be > 0");
+        require(msg.value <= type(uint128).max, "Amount too large");
 
         bets[marketId][msg.sender] = Bet({
             direction: direction,
-            amount: msg.value,
-            claimed: false
+            claimed: false,
+            amount: uint128(msg.value)
         });
 
         if (direction) {
-            market.upPool += msg.value;
+            market.upPool += uint128(msg.value);
         } else {
-            market.downPool += msg.value;
+            market.downPool += uint128(msg.value);
         }
 
         emit BetPlaced(marketId, msg.sender, direction, msg.value);
@@ -95,27 +96,21 @@ contract PredictionMarket {
         require(!bet.claimed, "Already claimed");
         require(bet.amount > 0, "No bet");
 
-        uint256 payout = 0;
-
-        if (bet.direction == market.outcome) {
-            uint256 winningPool = market.outcome ? market.upPool : market.downPool;
-            uint256 losingPool = market.outcome ? market.downPool : market.upPool;
-            uint256 totalPool = winningPool + losingPool;
-
-            // User's share of winning pool
-            uint256 userShare = (bet.amount * totalPool) / winningPool;
-            uint256 fee = (userShare * platformFee) / 1000;
-            payout = userShare - fee;
-        }
-
         bet.claimed = true;
 
-        if (payout > 0) {
-            payable(msg.sender).transfer(payout);
-            payable(feeRecipient).transfer(payout * platformFee / 1000);
+        if (bet.direction == market.outcome) {
+            // Calculate payout without division overflow
+            uint256 totalPool = uint256(market.upPool) + uint256(market.downPool);
+            uint256 payout = (uint256(bet.amount) * totalPool) / (market.outcome ? market.upPool : market.downPool);
+            uint256 fee = (payout * platformFee) / 1000;
+            payout -= fee;
+
+            if (payout > 0) {
+                payable(msg.sender).transfer(payout);
+            }
         }
 
-        emit Claimed(marketId, msg.sender, payout);
+        emit Claimed(marketId, msg.sender, bet.amount);
     }
 
     function getMarketCount() external view returns (uint256) {
